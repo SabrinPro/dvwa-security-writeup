@@ -15,12 +15,7 @@ Step 1 — Craft a Malicious Page
 The attacker hosts a webpage that silently triggers the password change: html
 
 You won a prize! 🎉
-
-
-An
-
-
-tag makes a GET request. The victim's browser sends their session cookie automatically. Step 2 — Deliver the Link The attacker sends the link to the victim via:
+An tag makes a GET request. The victim's browser sends their session cookie automatically. Step 2 — Deliver the Link The attacker sends the link to the victim via:
 Phishing email Forum post / comment Social media message
 
 Step 3 — Result When the logged-in victim opens attacker.com/pwn.html:
