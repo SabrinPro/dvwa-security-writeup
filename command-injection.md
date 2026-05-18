@@ -65,7 +65,6 @@ html<script>
 
 
 
-
 🔐 Mitigation
 
 MethodDescriptionCSRF TokensInclude a unique, unpredictable token in every state-changing request; verify server-sideSameSite CookieSet SameSite=Strict or SameSite=Lax to prevent cookies being sent cross-originReferer/Origin Header CheckValidate that requests originate from the expected domainRe-authenticationRequire the current password when changing sensitive settingsDouble Submit CookieSend token in both cookie and request; compare both server-side
